@@ -5,7 +5,8 @@
     <meta charset="UTF-8">
     <title>工资计算</title>
     <link href="docs/css/calendar.css" rel="stylesheet" type="text/css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/4.0.0-beta.2/jquery.min.js"></script>
+    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/jquery/4.0.0-rc.1/jquery.min.js"></script>
+    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/idb-keyval/6.2.2/umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -203,6 +204,24 @@
                     <button style="width: 200px; height: 50px;border: 0;border-radius: 5px;font-size: 16px;"
                         class="cal-picked">点击计算</button>
                 </div>
+            </div>
+            <div>
+                <h2>请假记录</h2>
+                <table id="leaveTable">
+                    <thead>
+                        <tr>
+                            <th>请假类型</th>
+                            <th>请假开始时间</th>
+                            <th>请假结束时间</th>
+                            <th>请假事由</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- 动态生成的行 -->
+                    </tbody>
+                </table>
+                <button class="button" id="addRecordButton">新增请假记录</button>
             </div>
         </div>
     </div>
@@ -429,7 +448,98 @@
             $("#td8").text(($("#td1").text() - (Number($("#td4").text()) + Number($("#td5").text())) * $("#td3").text() - $("#td6").text() * 5 - $("#td7").text()).toFixed(4));
         });
     </script>
+    <script>
+        // 获取表格和按钮
+        const leaveTable = document.getElementById('leaveTable').getElementsByTagName('tbody')[0];
+        const addRecordButton = document.getElementById('addRecordButton');
+
+        // 从idb中加载记录并显示
+        async function loadRecords() {
+            const records = await idbKeyval.get('leaveRecords') || [];
+            leaveTable.innerHTML = '';  // 清空现有表格
+            records.forEach((record, index) => {
+                const row = leaveTable.insertRow();
+                row.innerHTML = `
+                            <td>${record.type}</td>
+                            <td>${formatDate(record.startTime)}</td>
+                            <td>${formatDate(record.endTime)}</td>
+                            <td>${record.reason}</td>
+                            <td><button class="button delete-button" onclick="deleteRecord(${index})">删除</button></td>
+                        `;
+            });
+        }
+
+        // 格式化时间为 2026-01-24 12:00 格式
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            let date = new Date(dateString);
+            let year = date.getFullYear();
+            let month = String(date.getMonth() + 1).padStart(2, '0');
+            let day = String(date.getDate()).padStart(2, '0');
+            let hours = String(date.getHours()).padStart(2, '0');
+            let minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}`;
+        }
+
+        // 删除请假记录
+        async function deleteRecord(index) {
+            const records = await idbKeyval.get('leaveRecords') || [];
+            records.splice(index, 1);
+            await idbKeyval.set('leaveRecords', records);
+            loadRecords();
+        }
+
+        // 新增一条请假记录
+        function addLeaveRecordRow() {
+            const row = leaveTable.insertRow();
+            row.innerHTML = `
+                        <td>
+                            <select>
+                                <option value="请假">请假</option>
+                                <option value="迟到">迟到</option>
+                            </select>
+                        </td>
+                        <td><input type="datetime-local"></td>
+                        <td><input type="datetime-local"></td>
+                        <td><input type="text" placeholder="请输入请假事由"></td>
+                        <td><button class="button" onclick="submitLeaveRecord(this)">提交</button></td>
+                    `;
+        }
+
+        // 提交请假记录
+        async function submitLeaveRecord(button) {
+            const row = button.parentNode.parentNode;
+            const type = row.cells[0].getElementsByTagName('select')[0].value;
+            const startTime = row.cells[1].getElementsByTagName('input')[0].value;
+            const endTime = row.cells[2].getElementsByTagName('input')[0].value;
+            const reason = row.cells[3].getElementsByTagName('input')[0].value;
+
+            if (!startTime || !endTime || !reason) {
+                alert('请填写完整的请假信息');
+                return;
+            }
+
+            const record = {
+                type,
+                startTime,
+                endTime,
+                reason
+            };
+
+            const records = await idbKeyval.get('leaveRecords') || [];
+            records.push(record);
+            await idbKeyval.set('leaveRecords', records);
+            loadRecords();
+        }
+
+        // 添加新记录按钮点击事件
+        addRecordButton.addEventListener('click', addLeaveRecordRow);
+
+        // 页面加载时先加载记录
+        loadRecords();
+    </script>
 </body>
 
 </html>
-<!-- End-435-2026.01.23.140409 -->
+<!-- End-544-2026.01.23.153027 -->
+ 
